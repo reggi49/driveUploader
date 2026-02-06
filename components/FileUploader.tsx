@@ -160,10 +160,13 @@ export default function FileUploader() {
         ? destination.newFolderName
         : newFolderName;
     const trimmedNewFolderName = (rawNewFolderName ?? '').trim();
-    const folderIdToSend =
-      trimmedNewFolderName.length > 0
-        ? undefined
-        : (destination?.folderId ?? selectedFolderId || undefined);
+    let folderIdToSend: string | undefined;
+    if (trimmedNewFolderName.length > 0) {
+      folderIdToSend = undefined;
+    } else {
+      const candidate = destination?.folderId ?? selectedFolderId;
+      folderIdToSend = candidate ? candidate : undefined;
+    }
 
     const response = await fetch('/api/upload', {
       method: 'POST',
