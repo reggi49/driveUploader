@@ -112,12 +112,11 @@ export default function FileUploader() {
       const xhr = new XMLHttpRequest();
       xhr.open('PUT', uploadUrl, true);
       
-      // 1. MATIKAN COOKIES (Wajib untuk hindari 403)
+      // 1. DISABLE COOKIES (Mandatory to avoid 403)
       xhr.withCredentials = false; 
 
-      // 2. TRIK RAHASIA: Jangan kirim 'image/png' atau tipe asli.
-      // Kirim sebagai 'application/octet-stream' (data mentah).
-      // Ini mencegah Browser & Google berdebat soal format saat finalisasi.
+      // 2. MIME TYPE TRICK: Send as 'application/octet-stream' (raw data).
+      // This prevents Browser & Google matching strict mime-types.
       xhr.setRequestHeader('Content-Type', 'application/octet-stream');
 
       setDebugInfo((prev) => ({
@@ -133,7 +132,7 @@ export default function FileUploader() {
       };
 
       xhr.onerror = () => {
-        // Error network murni (internet putus atau CORS blokir total)
+        // Pure network error (internet lost or hard CORS block)
         console.error('Network Error (xhr.status=0)');
         setStatus('error');
         setMessage('Network error: CORS blocked or connection lost.');
@@ -146,8 +145,7 @@ export default function FileUploader() {
           uploadFinishedAt: new Date().toISOString()
         }));
 
-        // Status 200/201 = Sukses
-        // Status 308 = Resume Incomplete (Sukses parsial, tapi untuk file kecil ini dianggap sukses upload chunk)
+        // Status 200-399 = Success
         if (xhr.status >= 200 && xhr.status < 400) {
           setStatus('success');
           setMessage('Upload complete! 🚀');
@@ -156,7 +154,7 @@ export default function FileUploader() {
           return;
         }
 
-        // Tangkap error detail dari Google
+        // Catch detailed Google error
         console.error('Google Upload Failed:', xhr.status, xhr.responseText);
         setStatus('error');
         setMessage(`Upload failed: Server returned ${xhr.status}`);
