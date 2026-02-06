@@ -43,6 +43,7 @@ export default function FileUploader() {
   const [fileSize, setFileSize] = useState(0);
   const [backendDebug, setBackendDebug] = useState<BackendDebug | null>(null);
   const lastUploadUrlRef = useRef<string>('');
+  const lastProgressRef = useRef(0);
   const [folders, setFolders] = useState<FolderItem[]>([]);
   const [foldersLoading, setFoldersLoading] = useState(false);
   const [foldersError, setFoldersError] = useState('');
@@ -104,6 +105,7 @@ export default function FileUploader() {
     setFileName('');
     setFileSize(0);
     setBackendDebug(null);
+    lastProgressRef.current = 0;
     setDebugInfo({
       contentType: '',
       sessionRequestedAt: '',
@@ -180,11 +182,25 @@ export default function FileUploader() {
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
           const percent = Math.round((event.loaded / event.total) * 100);
+          lastProgressRef.current = percent;
           setProgress(percent);
         }
       };
 
       xhr.onerror = () => {
+        setDebugInfo((prev) => ({
+          ...prev,
+          uploadFinishedAt: new Date().toISOString()
+        }));
+
+        if (lastProgressRef.current >= 100) {
+          setStatus('success');
+          setMessage('Upload complete! 🚀');
+          setProgress(100);
+          resolve();
+          return;
+        }
+
         // Pure network error (internet lost or hard CORS block)
         console.error('Network Error (xhr.status=0)');
         setStatus('error');
