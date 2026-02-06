@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  min-height: 100vh;
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  background: radial-gradient(circle at top, rgba(59, 130, 246, 0.12), transparent 55%),
+    radial-gradient(circle at 20% 20%, rgba(16, 185, 129, 0.14), transparent 45%),
+    #05070f;
+  color: #e2e8f0;
+}
+
+* {
+  box-sizing: border-box;
+}
