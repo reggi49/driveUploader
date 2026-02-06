@@ -8,6 +8,8 @@ type UploadRequest = {
   fileName?: string;
   fileType?: string;
   fileSize?: number;
+  folderId?: string;
+  newFolderName?: string;
 };
 
 export async function POST(request: Request) {
@@ -15,9 +17,15 @@ export async function POST(request: Request) {
     console.log('--- [DEBUG] 1. Request received');
 
     const body = (await request.json()) as UploadRequest;
-    const { fileName, fileType, fileSize } = body;
+    const { fileName, fileType, fileSize, folderId, newFolderName } = body;
 
-    console.log('--- [DEBUG] 2. Parsed request body', { fileName, fileType, fileSize });
+    console.log('--- [DEBUG] 2. Parsed request body', {
+      fileName,
+      fileType,
+      fileSize,
+      folderId,
+      newFolderName
+    });
 
     if (!fileName) {
       throw new Error('INVALID REQUEST: fileName is required');
@@ -52,14 +60,47 @@ export async function POST(request: Request) {
 
     const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
-    console.log('--- [DEBUG] 5. Requesting resumable session (OAuth2)');
+    const rootFolderId = process.env.GOOGLE_FOLDER_ID;
+    const trimmedFolderName = newFolderName?.trim();
+
+    let targetFolderId = rootFolderId;
+
+    if (trimmedFolderName) {
+      console.log('--- [DEBUG] 5. Creating new folder', { trimmedFolderName });
+
+      const folderResponse = await drive.files.create({
+        requestBody: {
+          name: trimmedFolderName,
+          mimeType: 'application/vnd.google-apps.folder',
+          parents: [rootFolderId]
+        },
+        fields: 'id,name'
+      });
+
+      if (!folderResponse.data.id) {
+        throw new Error('Failed to create new folder.');
+      }
+
+      targetFolderId = folderResponse.data.id;
+      console.log('--- [DEBUG] 5.1 New folder created', {
+        id: folderResponse.data.id,
+        name: folderResponse.data.name
+      });
+    } else if (folderId?.trim()) {
+      targetFolderId = folderId.trim();
+      console.log('--- [DEBUG] 5. Using selected folder', { targetFolderId });
+    } else {
+      console.log('--- [DEBUG] 5. Using root folder', { targetFolderId });
+    }
+
+    console.log('--- [DEBUG] 6. Requesting resumable session (OAuth2)');
 
     const response = await drive.files.create(
       {
         requestBody: {
           name: fileName,
           mimeType: fileType,
-          parents: [process.env.GOOGLE_FOLDER_ID]
+          parents: [targetFolderId]
         },
         media: {
           mimeType: fileType,
@@ -76,14 +117,14 @@ export async function POST(request: Request) {
       }
     );
 
-    console.log('--- [DEBUG] 6. Google response headers', response.headers);
+    console.log('--- [DEBUG] 7. Google response headers', response.headers);
 
     const uploadUrl = response.headers.location as string | undefined;
     if (!uploadUrl) {
       throw new Error('Google did not return a Location header (Upload URL).');
     }
 
-    console.log('--- [DEBUG] 7. SUCCESS! Returning upload URL');
+    console.log('--- [DEBUG] 8. SUCCESS! Returning upload URL');
 
     return NextResponse.json({ uploadUrl });
   } catch (error) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
 
 type UploadStatus = 'idle' | 'uploading' | 'success' | 'error';
 
@@ -18,6 +18,11 @@ type UploadSessionResponse = {
   error?: string;
   details?: unknown;
   debug?: BackendDebug;
+};
+
+type FolderItem = {
+  id: string;
+  name: string;
 };
 
 const formatBytes = (bytes: number) => {
@@ -38,6 +43,11 @@ export default function FileUploader() {
   const [fileSize, setFileSize] = useState(0);
   const [backendDebug, setBackendDebug] = useState<BackendDebug | null>(null);
   const lastUploadUrlRef = useRef<string>('');
+  const [folders, setFolders] = useState<FolderItem[]>([]);
+  const [foldersLoading, setFoldersLoading] = useState(false);
+  const [foldersError, setFoldersError] = useState('');
+  const [selectedFolderId, setSelectedFolderId] = useState('');
+  const [newFolderName, setNewFolderName] = useState('');
   const [debugInfo, setDebugInfo] = useState({
     contentType: '',
     sessionRequestedAt: '',
@@ -47,6 +57,45 @@ export default function FileUploader() {
     uploadUrl: '',
     uploadUrlReused: false
   });
+
+  useEffect(() => {
+    let active = true;
+
+    const loadFolders = async () => {
+      try {
+        setFoldersLoading(true);
+        setFoldersError('');
+        const response = await fetch('/api/folders');
+        const payload = (await response.json().catch(() => ({}))) as {
+          folders?: FolderItem[];
+          error?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(payload.error || 'Failed to load folders.');
+        }
+
+        if (active) {
+          setFolders(payload.folders || []);
+        }
+      } catch (error) {
+        if (active) {
+          const messageText = error instanceof Error ? error.message : 'Failed to load folders.';
+          setFoldersError(messageText);
+        }
+      } finally {
+        if (active) {
+          setFoldersLoading(false);
+        }
+      }
+    };
+
+    void loadFolders();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const resetState = () => {
     setStatus('idle');
@@ -73,13 +122,17 @@ export default function FileUploader() {
       sessionRequestedAt: new Date().toISOString()
     }));
 
+    const trimmedNewFolderName = newFolderName.trim();
+
     const response = await fetch('/api/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         fileName: file.name,
         fileType: file.type || 'application/octet-stream',
-        fileSize: file.size
+        fileSize: file.size,
+        folderId: selectedFolderId || undefined,
+        newFolderName: trimmedNewFolderName || undefined
       })
     });
 
@@ -179,7 +232,7 @@ export default function FileUploader() {
       setStatus('error');
       setMessage(messageText);
     }
-  }, []);
+  }, [newFolderName, selectedFolderId]);
 
   const handleFileSelect = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -229,10 +282,52 @@ export default function FileUploader() {
     return `${(ms / 1000).toFixed(2)} s`;
   };
 
+  const isNewFolderActive = newFolderName.trim().length > 0;
+
   return (
     <section className="rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl shadow-black/40 backdrop-blur">
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="space-y-2">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Existing folder</p>
+          <select
+            className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+            value={selectedFolderId}
+            onChange={(event) => setSelectedFolderId(event.target.value)}
+            disabled={isNewFolderActive || status === 'uploading' || foldersLoading}
+          >
+            <option value="">Upload to root folder</option>
+            {folders.map((folder) => (
+              <option key={folder.id} value={folder.id}>
+                {folder.name}
+              </option>
+            ))}
+          </select>
+          {foldersLoading && <p className="text-xs text-slate-400">Loading folders…</p>}
+          {foldersError && <p className="text-xs text-rose-300">{foldersError}</p>}
+        </div>
+        <div className="space-y-2">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Create new folder</p>
+          <input
+            type="text"
+            className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+            placeholder="Optional: New folder name"
+            value={newFolderName}
+            onChange={(event) => {
+              setNewFolderName(event.target.value);
+              if (event.target.value.trim().length > 0) {
+                setSelectedFolderId('');
+              }
+            }}
+            disabled={status === 'uploading'}
+          />
+          <p className="text-xs text-slate-500">
+            If filled, the file will be uploaded into the new folder.
+          </p>
+        </div>
+      </div>
+
       <div
-        className={`flex min-h-[280px] flex-col items-center justify-center gap-6 rounded-2xl border border-dashed px-6 py-10 text-center transition ${
+        className={`mt-8 flex min-h-[280px] flex-col items-center justify-center gap-6 rounded-2xl border border-dashed px-6 py-10 text-center transition ${
           isDragging ? 'border-cyan-300/70 bg-cyan-400/10' : 'border-white/15 bg-white/5'
         }`}
         onDragEnter={handleDrag}
