@@ -126,7 +126,7 @@ export async function POST(request: Request) {
 
     console.log('--- [DEBUG] 8. SUCCESS! Returning upload URL');
 
-    return NextResponse.json({ uploadUrl });
+    return NextResponse.json({ uploadUrl, folderId: targetFolderId });
   } catch (error) {
     console.error('--- [ERROR LOG START] ---');
 
