@@ -476,19 +476,21 @@ export default function FileUploader() {
         </button>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          className="rounded-full border border-emerald-400/40 bg-emerald-500/20 px-6 py-2 text-sm font-semibold text-emerald-100 transition hover:border-emerald-300/60 hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-slate-400"
-          onClick={handleUploadAll}
-          disabled={!canUpload}
-        >
-          {isUploadingBatch ? 'Uploading...' : 'Upload All'}
-        </button>
-        <span className="text-xs uppercase tracking-[0.2em] text-slate-400">
-          {files.length} file{files.length === 1 ? '' : 's'} selected
-        </span>
-      </div>
+      {files.length > 0 && (
+        <div className="mt-6 flex flex-col items-center gap-2">
+          <button
+            type="button"
+            className="rounded-full border border-emerald-400/60 bg-emerald-500/30 px-10 py-3 text-base font-semibold text-emerald-50 shadow-lg shadow-emerald-500/20 transition hover:border-emerald-300/80 hover:bg-emerald-500/40 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-slate-400"
+            onClick={handleUploadAll}
+            disabled={!canUpload}
+          >
+            {isUploadingBatch ? 'Uploading...' : 'Upload All'}
+          </button>
+          <span className="text-xs uppercase tracking-[0.2em] text-slate-400">
+            {files.length} file{files.length === 1 ? '' : 's'} selected
+          </span>
+        </div>
+      )}
 
       <div className="mt-6 space-y-4">
         <div className="flex items-center justify-between text-sm text-slate-300">
